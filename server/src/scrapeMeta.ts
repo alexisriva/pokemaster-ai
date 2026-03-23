@@ -1,4 +1,8 @@
-import puppeteer from "puppeteer";
+import puppeteerExtra from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+
+const puppeteer = puppeteerExtra as any;
+puppeteer.use(StealthPlugin());
 
 export interface PokemonMetaData {
   pokemon: string;
@@ -86,8 +90,8 @@ export async function scrapePokemonMeta(
       }));
     });
 
-    result.topTeammates = teammates.filter((t) => t.name !== "");
-    result.commonChecks = checks.filter((c) => c.name !== "");
+    result.topTeammates = teammates.filter((t: any) => t.name !== "");
+    result.commonChecks = checks.filter((c: any) => c.name !== "");
 
     console.log(`[Scraper] Scraping complete for ${pokemonName}.`);
   } catch (err) {

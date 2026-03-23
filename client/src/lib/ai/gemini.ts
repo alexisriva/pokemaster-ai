@@ -1,6 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
-import type { PokemonMetaData } from "../../scripts/scrapeMeta";
 import type { PokemonSet } from "../pokemonParser";
+
+export interface PokemonMetaData {
+  pokemon: string;
+  topTeammates: { name: string; usage: string }[];
+  commonChecks: { name: string; usage: string }[];
+}
 
 export interface VGCReport {
   metaHoles: string[];

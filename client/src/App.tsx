@@ -14,7 +14,12 @@ import {
   Copy,
 } from "lucide-react";
 import { generateVGCStrategyReport, type VGCReport } from "./lib/ai/gemini";
-import type { PokemonMetaData } from "./scripts/scrapeMeta";
+
+export interface PokemonMetaData {
+  pokemon: string;
+  topTeammates: { name: string; usage: string }[];
+  commonChecks: { name: string; usage: string }[];
+}
 
 type PokemonSet = {
   species: string;
@@ -135,34 +140,49 @@ export default function App() {
     addLog("Agent initialized. Authenticating Gemini...", "analyzing");
     await new Promise((r) => setTimeout(r, 800));
 
-    addLog("Parsing raw text to identify logical blocks.", "analyzing");
-    const parsed = parsePokepaste(paste);
-    await new Promise((r) => setTimeout(r, 600));
+    addLog("Sending raw text to backend analyzer module...", "analyzing");
 
-    addLog(
-      `Identified ${parsed.length} Pokémon entries. Compiling attributes...`,
-    );
-    setTeam(parsed);
-    await new Promise((r) => setTimeout(r, 800));
-
-    addLog(
-      "Initiating headless data scrape for Meta correlations (Simulated).",
-      "analyzing",
-    );
-
-    // Simulate scraped data context for the prompt
-    const simulatedMetaData: PokemonMetaData[] = parsed.map((p) => ({
-      pokemon: p.species,
-      topTeammates: [
-        { name: "Incineroar", usage: "65%" },
-        { name: "Rillaboom", usage: "45%" },
-      ],
-      commonChecks: [
-        { name: "Urshifu", usage: "35%" },
-        { name: "Terapagos", usage: "25%" },
-      ],
-    }));
-    await new Promise((r) => setTimeout(r, 1500));
+    let parsed: PokemonSet[] = [];
+    let metaData: PokemonMetaData[] = [];
+    try {
+      // Just use the relative path, Vite proxy handles dev routing mapping /api -> localhost:5000
+      const res = await fetch(`/api/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rawPaste: paste }),
+      });
+      
+      if (res.ok) {
+        const payload = await res.json();
+        parsed = payload.parsedTeam;
+        metaData = payload.scrapedData;
+        
+        setTeam(parsed);
+        addLog(`Successfully processed ${parsed.length} Pokémon entries from backend.`, "info");
+      } else {
+        throw new Error("Analyze endpoint returned an error");
+      }
+    } catch (e) {
+      console.warn("Backend scrape failed, using fallback simulated data", e);
+      addLog("Backend scrape failed, using fallback simulated data.", "error");
+      
+      // Since backend failed, we manually parse so the rest of the UI continues
+      parsed = parsePokepaste(paste);
+      setTeam(parsed);
+      
+      metaData = parsed.map((p) => ({
+        pokemon: p.species,
+        topTeammates: [
+          { name: "Incineroar", usage: "65%" },
+          { name: "Rillaboom", usage: "45%" },
+        ],
+        commonChecks: [
+          { name: "Urshifu", usage: "35%" },
+          { name: "Terapagos", usage: "25%" },
+        ],
+      }));
+      await new Promise((r) => setTimeout(r, 1500));
+    }
 
     addLog(
       `Meta extraction complete. Sourced current tournament stats.`,
@@ -173,7 +193,7 @@ export default function App() {
     try {
       const generatedReport = await generateVGCStrategyReport(
         parsed,
-        simulatedMetaData,
+        metaData,
         apiKey,
         regulation,
       );

@@ -7,7 +7,8 @@ puppeteer.use(StealthPlugin());
 export interface PokemonMetaData {
   pokemon: string;
   topTeammates: { name: string; usage: string }[];
-  commonChecks: { name: string; usage: string }[];
+  topItems: { name: string; usage: string }[];
+  topMoves: { name: string; usage: string }[];
 }
 
 /**
@@ -34,66 +35,67 @@ export async function scrapePokemonMeta(
   const result: PokemonMetaData = {
     pokemon: pokemonName,
     topTeammates: [],
-    commonChecks: [],
+    topItems: [],
+    topMoves: [],
   };
 
   try {
-    const formatName = pokemonName.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    // Keep internal dashes, and encode spaces for names like "Raging Bolt" -> "raging%20bolt"
+    const formatName = pokemonName.toLowerCase().replace(/[^a-z0-9- ]/g, "").replace(/ /g, "%20");
 
     // In actual practice, you update the regulation segment string as metas progress (e.g. regg, regh)
     const url = `https://pikalytics.com/pokedex/gen9vgc2024regf/${formatName}`;
     console.log(`[Scraper] Navigating to: ${url}`);
 
-    // Use domcontentloaded for faster scraping instead of networkidle
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+    // Use networkidle2 so that any async Javascript API requests for Pikalytics stats complete
+    await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+    
+    // Pikalytics changed their layout: they now use a.teammate_entry 
+    await page.waitForSelector("a.teammate_entry", { timeout: 10000 })
+      .catch(() => console.log('Timeout waiting for teammate_entry on ' + pokemonName));
 
-    // Optional: add LabMaus integration dynamically here, fetching tournament results
-    // Example: await page.goto(`https://thelabmaus.com/...`);
-
-    // Scrape Top Teammates
-    // Usually nested in elements like `.pokedex-teammate-wrapper`
+    // Scrape Top Teammates 
     const teammates = await page.evaluate(() => {
-      const nodes = Array.from(
-        document.querySelectorAll(
-          ".pokedex-category-wrapper.teammates .pokemon-name",
-        ),
-      );
-      const percentages = Array.from(
-        document.querySelectorAll(
-          ".pokedex-category-wrapper.teammates .usage-percent",
-        ),
-      );
-
-      return nodes.slice(0, 5).map((node, i) => ({
-        name: node.textContent?.trim() || "",
-        usage: percentages[i]?.textContent?.trim() || "0%",
-      }));
+      const nodes = Array.from(document.querySelectorAll("a.teammate_entry"));
+      return nodes.slice(0, 5).map((node) => {
+        const nameAttr = node.getAttribute("data-name") || "";
+        const name = nameAttr.replace(/%20/g, " "); // Fix encoding for spaces
+        const pctNode = node.querySelector("div[style*='float:right']");
+        const usage = pctNode ? (pctNode.textContent?.trim() || "0%") : "0%";
+        return { name, usage };
+      });
     });
 
-    // Scrape Common Checks / Counters
-    // Depending on the site updates, the selector might shift
-    const checks = await page.evaluate(() => {
-      const nodes = Array.from(
-        document.querySelectorAll(
-          ".pokedex-category-wrapper.checks .pokemon-name",
-        ),
-      );
-      const percentages = Array.from(
-        document.querySelectorAll(
-          ".pokedex-category-wrapper.checks .usage-percent",
-        ),
-      );
+    // Scrape Top Moves
+    const moves = await page.evaluate(() => {
+      const nodes = Array.from(document.querySelectorAll("#moves_wrapper .pokedex-move-entry-new"));
+      return nodes.slice(0, 5).map((node) => {
+        const pctNode = node.querySelector("div[style*='float:right']");
+        const usage = pctNode ? (pctNode.textContent?.trim() || "0%") : "0%";
+        const nameNode = node.children[0];
+        const name = nameNode ? nameNode.textContent?.trim() || "" : "";
+        return { name, usage };
+      }).filter(m => m.name !== "Other" && m.name !== "");
+    });
 
-      return nodes.slice(0, 5).map((node, i) => ({
-        name: node.textContent?.trim() || "",
-        usage: percentages[i]?.textContent?.trim() || "0%",
-      }));
+    // Scrape Top Items
+    const items = await page.evaluate(() => {
+      const nodes = Array.from(document.querySelectorAll("#items_wrapper .pokedex-move-entry-new"));
+      return nodes.slice(0, 5).map((node) => {
+        const pctNode = node.querySelector("div[style*='float:right']");
+        const usage = pctNode ? (pctNode.textContent?.trim() || "0%") : "0%";
+        const nameNode = node.children.length > 1 ? node.children[1] : node.children[0];
+        const name = nameNode ? nameNode.textContent?.trim() || "" : "";
+        return { name, usage };
+      }).filter(i => i.name !== "Other" && i.name !== "");
     });
 
     result.topTeammates = teammates.filter((t: any) => t.name !== "");
-    result.commonChecks = checks.filter((c: any) => c.name !== "");
+    result.topMoves = moves;
+    result.topItems = items;
 
-    console.log(`[Scraper] Scraping complete for ${pokemonName}.`);
+    console.log(`[Scraper] Scraping complete for ${pokemonName}:`);
+    console.log(JSON.stringify(result, null, 2));
   } catch (err) {
     console.error(
       `[Scraper] Failed to scrape usage stats for ${pokemonName}:`,

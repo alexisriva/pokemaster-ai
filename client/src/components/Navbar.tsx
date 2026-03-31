@@ -11,7 +11,7 @@ export default function Navbar({ apiKey, onApiKeyChange }: NavbarProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <img
-            src="/pokemaster-ai-logo.png"
+            src="/logo.png"
             alt="PokéMaster AI logo"
             className="h-10 w-12 rounded-xl"
           />

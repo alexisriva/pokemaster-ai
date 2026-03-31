@@ -13,7 +13,7 @@ export default function Navbar({ apiKey, onApiKeyChange }: NavbarProps) {
           <img
             src="/logo.png"
             alt="PokéMaster AI logo"
-            className="h-10 w-12 rounded-xl"
+            className="h-10 w-10 rounded-xl"
           />
           <h1 className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-linear-to-r from-blue-400 to-indigo-500">
             PokéMaster AI

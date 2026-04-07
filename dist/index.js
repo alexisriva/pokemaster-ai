@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./swagger.js";
 import { parsePokepaste } from "./pokemonParser.js";
 import { scrapeTournamentData, scrapePokemonMeta } from "./scrapeMeta.js";
 import { generateVGCStrategyReport } from "./gemini.js";
@@ -13,6 +15,78 @@ app.use(cors(allowedOrigins === "*"
         origin: allowedOrigins.split(",").map((o) => o.trim()),
     }));
 app.use(express.json());
+// ---------------------------------------------------------------------------
+// Swagger UI — /docs
+// Dark mode via CSS variable overrides (Swagger UI does not ship dark mode
+// natively; we remap its CSS custom properties at the :root level).
+// ---------------------------------------------------------------------------
+const darkCss = `
+  :root {
+    --bg: #0f1117;
+    --bg-secondary: #1a1d27;
+    --bg-tertiary: #242736;
+    --border: #2e3147;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent: #7c6af7;
+    --accent-hover: #9d8fff;
+    --get: #3b82f6;
+    --post: #10b981;
+    --delete: #ef4444;
+    --put: #f59e0b;
+  }
+  body, .swagger-ui { background: var(--bg); color: var(--text); }
+  .swagger-ui .topbar { background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
+  .swagger-ui .topbar .download-url-wrapper input { background: var(--bg-tertiary); color: var(--text); border: 1px solid var(--border); }
+  .swagger-ui .info .title, .swagger-ui .info p, .swagger-ui .info li,
+  .swagger-ui .info a, .swagger-ui label { color: var(--text); }
+  .swagger-ui .info a { color: var(--accent-hover); }
+  .swagger-ui .scheme-container { background: var(--bg-secondary); border-bottom: 1px solid var(--border); box-shadow: none; }
+  .swagger-ui .opblock-tag { color: var(--text); border-bottom: 1px solid var(--border); }
+  .swagger-ui .opblock-tag:hover { background: var(--bg-tertiary); }
+  .swagger-ui .opblock { background: var(--bg-secondary); border: 1px solid var(--border); box-shadow: none; }
+  .swagger-ui .opblock .opblock-summary { border-bottom: 1px solid var(--border); }
+  .swagger-ui .opblock .opblock-summary-description { color: var(--text-muted); }
+  .swagger-ui .opblock.opblock-get .opblock-summary-method { background: var(--get); }
+  .swagger-ui .opblock.opblock-get { border-color: var(--get); background: rgba(59,130,246,.08); }
+  .swagger-ui .opblock.opblock-post .opblock-summary-method { background: var(--post); }
+  .swagger-ui .opblock.opblock-post { border-color: var(--post); background: rgba(16,185,129,.08); }
+  .swagger-ui .opblock.opblock-delete .opblock-summary-method { background: var(--delete); }
+  .swagger-ui .opblock.opblock-delete { border-color: var(--delete); background: rgba(239,68,68,.08); }
+  .swagger-ui .opblock.opblock-put .opblock-summary-method { background: var(--put); }
+  .swagger-ui .opblock.opblock-put { border-color: var(--put); background: rgba(245,158,11,.08); }
+  .swagger-ui .opblock-body, .swagger-ui .opblock-section, .swagger-ui .opblock-section-header { background: var(--bg-secondary); }
+  .swagger-ui .opblock-description-wrapper p,
+  .swagger-ui .opblock-external-docs-wrapper p,
+  .swagger-ui .opblock-title_normal p,
+  .swagger-ui table thead tr th,
+  .swagger-ui table thead tr td,
+  .swagger-ui .parameters-col_description p,
+  .swagger-ui .response-col_description p { color: var(--text-muted); }
+  .swagger-ui .tab li, .swagger-ui .opblock-tag small { color: var(--text-muted); }
+  .swagger-ui input[type=text], .swagger-ui textarea, .swagger-ui select {
+    background: var(--bg-tertiary); color: var(--text); border: 1px solid var(--border);
+  }
+  .swagger-ui .btn { background: var(--bg-tertiary); color: var(--text); border-color: var(--border); }
+  .swagger-ui .btn.execute { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .swagger-ui .btn.execute:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .swagger-ui .btn.cancel { border-color: var(--delete); color: var(--delete); }
+  .swagger-ui .model-box, .swagger-ui .model { background: var(--bg-tertiary); }
+  .swagger-ui section.models { background: var(--bg-secondary); border: 1px solid var(--border); }
+  .swagger-ui section.models h4 { color: var(--text); border-bottom: 1px solid var(--border); }
+  .swagger-ui .model-title, .swagger-ui .model .property.primitive { color: var(--text); }
+  .swagger-ui .model span, .swagger-ui .model .property span { color: var(--text-muted); }
+  .swagger-ui .response-col_status { color: var(--text); }
+  .swagger-ui .responses-inner h4, .swagger-ui .responses-inner h5 { color: var(--text); }
+  .swagger-ui .highlight-code { background: var(--bg-tertiary) !important; }
+  .swagger-ui .microlight { background: var(--bg-tertiary) !important; color: var(--text) !important; }
+  .swagger-ui * { scrollbar-color: var(--border) var(--bg-secondary); }
+`;
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: darkCss,
+    customSiteTitle: "PokéMaster AI — API Docs",
+    swaggerOptions: { defaultModelsExpandDepth: 1, defaultModelExpandDepth: 2 },
+}));
 // ---------------------------------------------------------------------------
 // Health check
 // ---------------------------------------------------------------------------

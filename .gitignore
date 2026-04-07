@@ -74,3 +74,6 @@ sketch
 # Local npm cache bypass
 .npm-cache/
 .npmrc
+
+# Build
+dist

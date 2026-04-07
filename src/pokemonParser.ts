@@ -1,13 +1,4 @@
-export type PokemonSet = {
-  species: string;
-  item?: string;
-  ability?: string;
-  teraType?: string;
-  evs?: string;
-  ivs?: string;
-  nature?: string;
-  moves: string[];
-};
+import type { PokemonSet } from "./types.js";
 
 export function parsePokepaste(text: string): PokemonSet[] {
   if (!text) return [];
@@ -39,15 +30,12 @@ export function parsePokepaste(text: string): PokemonSet[] {
     }
 
     // Strip gender and nick if present: "Nick (Species) (M) @ Item" -> "Species"
-    // For simplicity, just doing basic parsing: matching `(Species)` if present.
     const speciesMatch = pokemon.species.match(/\(([^()]+)\)/);
-    // Be careful, sometimes it's (M) or (F)
     const validNickMatch =
       speciesMatch && speciesMatch[1] !== "M" && speciesMatch[1] !== "F";
     if (validNickMatch) {
       pokemon.species = speciesMatch[1];
     } else {
-      // Remove (M) and (F)
       pokemon.species = pokemon.species.replace(/\s*\([MF]\)\s*/g, "").trim();
     }
 
